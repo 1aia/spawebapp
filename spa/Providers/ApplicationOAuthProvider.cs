@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
@@ -33,6 +33,17 @@ namespace spa.Providers
 
             ApplicationUser user = await userManager.FindAsync(context.UserName, context.Password);
 
+            //TODO: move this func into userManager
+            if (user == null)
+            {
+                user = await userManager.FindByEmailAsync(context.UserName);
+
+                if(user != null)
+                {
+                    user = await userManager.FindAsync(user.UserName, context.Password);
+                }
+            }
+
             if (user == null)
             {
                 context.SetError("invalid_grant", "The user name or password is incorrect.");
@@ -44,7 +55,7 @@ namespace spa.Providers
             ClaimsIdentity cookiesIdentity = await user.GenerateUserIdentityAsync(userManager,
                 CookieAuthenticationDefaults.AuthenticationType);
 
-            AuthenticationProperties properties = CreateProperties(user.UserName);
+            AuthenticationProperties properties = CreateProperties(oAuthIdentity);
             AuthenticationTicket ticket = new AuthenticationTicket(oAuthIdentity, properties);
             context.Validated(ticket);
             context.Request.Context.Authentication.SignIn(cookiesIdentity);
@@ -76,8 +87,9 @@ namespace spa.Providers
             if (context.ClientId == _publicClientId)
             {
                 Uri expectedRootUri = new Uri(context.Request.Uri, "/");
+                Uri redirectUri = new Uri(context.RedirectUri);
 
-                if (expectedRootUri.AbsoluteUri == context.RedirectUri)
+                if (expectedRootUri.Authority == redirectUri.Authority)
                 {
                     context.Validated();
                 }
@@ -86,11 +98,16 @@ namespace spa.Providers
             return Task.FromResult<object>(null);
         }
 
-        public static AuthenticationProperties CreateProperties(string userName)
+        public static AuthenticationProperties CreateProperties(ClaimsIdentity identity)
         {
+            var roleClaimValues = ((ClaimsIdentity)identity).FindAll(ClaimTypes.Role).Select(c => c.Value);
+
+            var roles = string.Join(",", roleClaimValues);
+
             IDictionary<string, string> data = new Dictionary<string, string>
             {
-                { "userName", userName }
+                { "userName", ((ClaimsIdentity) identity).FindFirstValue(ClaimTypes.Name) },
+                { "userRoles", roles }
             };
             return new AuthenticationProperties(data);
         }

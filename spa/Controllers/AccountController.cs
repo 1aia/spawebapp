@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Security.Claims;
@@ -16,24 +16,29 @@ using Microsoft.Owin.Security.OAuth;
 using spa.Models;
 using spa.Providers;
 using spa.Results;
+using System.Linq;
+using spa.Filters;
 
 namespace spa.Controllers
 {
+
     [Authorize]
     [RoutePrefix("api/Account")]
     public class AccountController : ApiController
     {
         private const string LocalLoginProvider = "Local";
+        private const string DefaultUserRole = "user";
+
         private ApplicationUserManager _userManager;
 
         public AccountController()
+            : this(Startup.OAuthOptions.AccessTokenFormat)
         {
         }
 
-        public AccountController(ApplicationUserManager userManager,
-            ISecureDataFormat<AuthenticationTicket> accessTokenFormat)
+        public AccountController(ISecureDataFormat<AuthenticationTicket> accessTokenFormat)
         {
-            UserManager = userManager;
+            //
             AccessTokenFormat = accessTokenFormat;
         }
 
@@ -58,11 +63,17 @@ namespace spa.Controllers
         {
             ExternalLoginData externalLogin = ExternalLoginData.FromIdentity(User.Identity as ClaimsIdentity);
 
+            var roleClaimValues = ((ClaimsIdentity)User.Identity).FindAll(ClaimTypes.Role).Select(c => c.Value);
+
+            var roles = string.Join(",", roleClaimValues);
+
             return new UserInfoViewModel
             {
-                Email = User.Identity.GetUserName(),
+                UserName = User.Identity.GetUserName(),
+                Email = ((ClaimsIdentity)User.Identity).FindFirstValue(ClaimTypes.Email),
                 HasRegistered = externalLogin == null,
-                LoginProvider = externalLogin != null ? externalLogin.LoginProvider : null
+                LoginProvider = externalLogin != null ? externalLogin.LoginProvider : null,
+                UserRoles = roles
             };
         }
 
@@ -108,7 +119,8 @@ namespace spa.Controllers
             return new ManageInfoViewModel
             {
                 LocalLoginProvider = LocalLoginProvider,
-                Email = user.UserName,
+                Email = user.Email,
+                UserName = user.UserName,
                 Logins = logins,
                 ExternalLoginProviders = GetExternalLogins(returnUrl, generateState)
             };
@@ -125,7 +137,7 @@ namespace spa.Controllers
 
             IdentityResult result = await UserManager.ChangePasswordAsync(User.Identity.GetUserId(), model.OldPassword,
                 model.NewPassword);
-            
+
             if (!result.Succeeded)
             {
                 return GetErrorResult(result);
@@ -228,8 +240,8 @@ namespace spa.Controllers
         public async Task<IHttpActionResult> GetExternalLogin(string provider, string error = null)
         {
             if (error != null)
-            {
-                return Redirect(Url.Content("~/") + "#error=" + Uri.EscapeDataString(error));
+            {                               
+                return Redirect(Url.Content("~/externalauth") + "#error=" + Uri.EscapeDataString(error));
             }
 
             if (!User.Identity.IsAuthenticated)
@@ -258,13 +270,13 @@ namespace spa.Controllers
             if (hasRegistered)
             {
                 Authentication.SignOut(DefaultAuthenticationTypes.ExternalCookie);
-                
-                 ClaimsIdentity oAuthIdentity = await user.GenerateUserIdentityAsync(UserManager,
-                    OAuthDefaults.AuthenticationType);
+
+                ClaimsIdentity oAuthIdentity = await user.GenerateUserIdentityAsync(UserManager,
+                   OAuthDefaults.AuthenticationType);
                 ClaimsIdentity cookieIdentity = await user.GenerateUserIdentityAsync(UserManager,
                     CookieAuthenticationDefaults.AuthenticationType);
 
-                AuthenticationProperties properties = ApplicationOAuthProvider.CreateProperties(user.UserName);
+                AuthenticationProperties properties = ApplicationOAuthProvider.CreateProperties(oAuthIdentity);
                 Authentication.SignIn(properties, oAuthIdentity, cookieIdentity);
             }
             else
@@ -282,6 +294,7 @@ namespace spa.Controllers
         [Route("ExternalLogins")]
         public IEnumerable<ExternalLoginViewModel> GetExternalLogins(string returnUrl, bool generateState = false)
         {
+            //returnUrl = @"";
             IEnumerable<AuthenticationDescription> descriptions = Authentication.GetExternalAuthenticationTypes();
             List<ExternalLoginViewModel> logins = new List<ExternalLoginViewModel>();
 
@@ -307,7 +320,7 @@ namespace spa.Controllers
                         provider = description.AuthenticationType,
                         response_type = "token",
                         client_id = Startup.PublicClientId,
-                        redirect_uri = new Uri(Request.RequestUri, returnUrl).AbsoluteUri,
+                        redirect_uri = new Uri(Request.RequestUri, returnUrl).AbsoluteUri,      
                         state = state
                     }),
                     State = state
@@ -316,6 +329,48 @@ namespace spa.Controllers
             }
 
             return logins;
+        }
+
+        // GET api/Account/ExternalLogins?returnUrl=%2F&provider=name&generateState=true
+        [AllowAnonymous]
+        [Route("ExternalLogins")]
+        public IHttpActionResult GetExternalLogins(string returnUrl,string provider, bool generateState = false)
+        {
+            var description = Authentication.GetExternalAuthenticationTypes()                                    
+                                    .FirstOrDefault(ad => ad.AuthenticationType == provider);
+
+            if (description == null)
+            {
+                return NotFound();
+            }
+            
+            string state;
+
+            if (generateState)
+            {
+                const int strengthInBits = 256;
+                state = RandomOAuthStateGenerator.Generate(strengthInBits);
+            }
+            else
+            {
+                state = null;
+            }
+
+            ExternalLoginViewModel login = new ExternalLoginViewModel
+            {
+                Name = description.Caption,
+                Url = Url.Route("ExternalLogin", new
+                {
+                    provider = description.AuthenticationType,
+                    response_type = "token",
+                    client_id = Startup.PublicClientId,
+                    redirect_uri = new Uri(Request.RequestUri, returnUrl).AbsoluteUri,
+                    state = state
+                }),
+                State = state
+            };
+
+            return Ok(login);
         }
 
         // POST api/Account/Register
@@ -328,7 +383,7 @@ namespace spa.Controllers
                 return BadRequest(ModelState);
             }
 
-            var user = new ApplicationUser() { UserName = model.Email, Email = model.Email };
+            var user = new ApplicationUser() { UserName = model.UserName, Email = model.Email };
 
             IdentityResult result = await UserManager.CreateAsync(user, model.Password);
 
@@ -337,7 +392,48 @@ namespace spa.Controllers
                 return GetErrorResult(result);
             }
 
+            result = await UserManager.AddToRoleAsync(user.Id, DefaultUserRole);
+
+            if (!result.Succeeded)
+            {
+                return GetErrorResult(result);
+            }
+
             return Ok();
+        }        
+
+        [AllowAnonymous]
+        [HttpPost]
+        [Route("checkEmailAvailable")]
+        public async Task<IHttpActionResult> CheckEmailAvailable([FromBody] emailQueryBindingModel query)
+        {
+            var user = await UserManager.FindByEmailAsync(query.Email);
+
+            if (user == null)
+            {
+                return Ok("email available");             
+            }
+            else
+            {
+                return BadRequest("email already in use");
+            }
+        }
+
+        [AllowAnonymous]
+        [HttpPost]
+        [Route("checkUsernameAvailable")]
+        public async Task<IHttpActionResult> CheckUsernameAvailable([FromBody] usernameQueryBindingModel query)
+        {
+            var user = await UserManager.FindByNameAsync(query.Username);
+
+            if (user == null)
+            {
+                return Ok("username available");
+            }
+            else
+            {
+                return BadRequest("username already in use");
+            }
         }
 
         // POST api/Account/RegisterExternal
@@ -357,19 +453,29 @@ namespace spa.Controllers
                 return InternalServerError();
             }
 
-            var user = new ApplicationUser() { UserName = model.Email, Email = model.Email };
+            var user = new ApplicationUser() { UserName = model.UserName, Email = model.Email != null ? model.Email : "" };
 
             IdentityResult result = await UserManager.CreateAsync(user);
+
             if (!result.Succeeded)
             {
                 return GetErrorResult(result);
             }
 
             result = await UserManager.AddLoginAsync(user.Id, info.Login);
+
             if (!result.Succeeded)
             {
-                return GetErrorResult(result); 
+                return GetErrorResult(result);
             }
+
+            result = await UserManager.AddToRoleAsync(user.Id, DefaultUserRole);
+
+            if (!result.Succeeded)
+            {
+                return GetErrorResult(result);
+            }
+
             return Ok();
         }
 
@@ -424,6 +530,7 @@ namespace spa.Controllers
             public string LoginProvider { get; set; }
             public string ProviderKey { get; set; }
             public string UserName { get; set; }
+            public string Email { get; set; }
 
             public IList<Claim> GetClaims()
             {
@@ -433,6 +540,11 @@ namespace spa.Controllers
                 if (UserName != null)
                 {
                     claims.Add(new Claim(ClaimTypes.Name, UserName, null, LoginProvider));
+                }
+
+                if (Email != null)
+                {
+                    claims.Add(new Claim(ClaimTypes.Email, Email, null, LoginProvider));
                 }
 
                 return claims;
@@ -462,7 +574,8 @@ namespace spa.Controllers
                 {
                     LoginProvider = providerKeyClaim.Issuer,
                     ProviderKey = providerKeyClaim.Value,
-                    UserName = identity.FindFirstValue(ClaimTypes.Name)
+                    UserName = identity.FindFirstValue(ClaimTypes.Name),
+                    Email = identity.FindFirstValue(ClaimTypes.Email)
                 };
             }
         }
