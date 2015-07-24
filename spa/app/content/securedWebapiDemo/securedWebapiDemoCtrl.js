@@ -3,13 +3,13 @@
 
     //create the securedSvc resource.
     angular.module('app.content')
-        .factory('securedSvc', function ($resource) {
+        .factory('securedSvc', ['$resource', function ($resource) {
             return $resource(
                 '/api/secured/:Id',
                 { Id: '@Id' },
                 { 'update': { method: 'PUT' } }
             );
-        });
+        }]);
 
     var controllerId = 'securedWebapiDemoCtrl';
 
