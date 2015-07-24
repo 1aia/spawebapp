@@ -4,18 +4,24 @@
     var content = angular.module('app.content', ['ngResource']);
 
     var routeBuilder = function (route, name, roles) {
-        return {
+        var result = {
             templateUrl: 'app/content/' + route + '/' + route + '.html',
             controller: route + 'Ctrl',
             caseInsensitiveMatch: true,
-            showNav: name || route,
-            resolve: {
+            showNav: name || route
+        }
+
+        if (roles) {
+            result.resolve = {
                 guard: ['guardSvc', function (guardSvc) {
                     return guardSvc.guardRoute(roles || []);
                 }]
-            },
-            showForRoles: roles
+            };
+
+            result.showForRoles = roles
         }
+
+        return result;
     }
 
     content.config(['$routeProvider', function ($routeProvider) {
