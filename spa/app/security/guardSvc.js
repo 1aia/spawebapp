@@ -16,7 +16,7 @@
 
         function guardRoute(requiredRoles) {
             return appStatusSvc.whenReady()
-                ['finally'](function (requiredRoles) {
+                ['finally'](function () {
                     var deferred = $q.defer(), authResult = authorize(requiredRoles);
 
                     if (authResult.authorized) {

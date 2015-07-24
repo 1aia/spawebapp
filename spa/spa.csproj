@@ -20,6 +20,7 @@
     <IISExpressAnonymousAuthentication />
     <IISExpressWindowsAuthentication />
     <IISExpressUseClassicPipelineMode />
+    <UseGlobalApplicationHostFile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -236,6 +237,10 @@
     <Content Include="app\app.js" />
     <Content Include="app\common\validation\skAsyncValidators.js" />
     <Content Include="app\common\validation\skMatches.js" />
+    <Content Include="app\content\userOnly\userOnly.html" />
+    <Content Include="app\content\userOnly\userOnlyCtrl.js" />
+    <Content Include="app\content\adminOnly\adminOnly.html" />
+    <Content Include="app\content\adminOnly\adminOnlyCtrl.js" />
     <Content Include="app\content\content.js" />
     <Content Include="app\content\features\features.html" />
     <Content Include="app\content\features\featuresCtrl.js" />

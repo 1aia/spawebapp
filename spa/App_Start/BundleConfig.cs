@@ -42,17 +42,17 @@ namespace spa
                 "~/app/core/navigationSvc.js",
                 "~/app/core/skDisableWhenBusy.js",
                 "~/app/core/storageSvc.js",
-                "~/app/core/skAppReady.js",                       
+                "~/app/core/skAppReady.js",
                 "~/app/common/validation/skMatches.js",
                 "~/app/common/validation/skAsyncValidators.js"
                 ));
 
-            bundles.Add(new ScriptBundle("~/bundles/shell").Include(    
+            bundles.Add(new ScriptBundle("~/bundles/shell").Include(
                 "~/app/shell/shell.js",
                 "~/app/shell/shellCtrl.js",
                 "~/app/shell/topNavCtrl.js",
                 "~/app/shell/skNavLinks.js",
-                "~/app/shell/skBusyIndicator.js"                       
+                "~/app/shell/skBusyIndicator.js"
                 ));
 
             bundles.Add(new ScriptBundle("~/bundles/security").Include(
@@ -62,7 +62,7 @@ namespace spa
                 "~/app/security/signInCtrl.js",
                 "~/app/security/registerCtrl.js",
                 "~/app/security/secureHttpInterceptor.js",
-                "~/app/security/guardSvc.js",                
+                "~/app/security/guardSvc.js",
                 "~/app/security/userSvc.js",
                 "~/app/security/skUserInfo.js",
                 "~/app/security/externalSignInCtrl.js",
@@ -78,22 +78,32 @@ namespace spa
                 "~/app/security/usedLoginProviderFilter.js"
                 ));
 
-            bundles.Add(new ScriptBundle("~/bundles/content").Include(
-                "~/app/content/content.js",
-                "~/app/content/welcome/welcomeCtrl.js",
-                "~/app/content/features/featuresCtrl.js",
-                "~/app/content/securedWebapiDemo/securedWebapiDemoCtrl.js"
-                ));
-
             bundles.Add(new StyleBundle("~/Content/css").Include(
                       "~/Content/bootstrap.css",
                       "~/Content/toastr.css",
                        "~/Content/fadeAnimation.css",
                       "~/Content/site.css"));
 
+            bundles.Add(new ScriptBundle("~/bundles/content").Include(GetAppJsFiles()));
+
             // Set EnableOptimizations to false for debugging. For more information,
             // visit http://go.microsoft.com/fwlink/?LinkId=301862
             //BundleTable.EnableOptimizations = true;
+        }
+
+        private static string[] GetAppJsFiles()
+        {
+            //HostingEnvironment.ApplicationPhysicalPath
+            //Server.MapPath("~/bin")
+
+            return new [] {
+                "~/app/content/content.js",
+                "~/app/content/welcome/welcomeCtrl.js",
+                "~/app/content/features/featuresCtrl.js",
+                "~/app/content/adminOnly/adminOnlyCtrl.js",
+                "~/app/content/userOnly/userOnlyCtrl.js",
+                "~/app/content/securedWebapiDemo/securedWebapiDemoCtrl.js"
+            };
         }
     }
 }
