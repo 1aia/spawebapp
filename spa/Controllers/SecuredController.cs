@@ -16,6 +16,8 @@ namespace spa.Controllers
             // TODO Tada
 
             return new string[] { "value1", "value2", "value3" };
+
+            // Atata
         }
 
         // GET: api/Secured/5
