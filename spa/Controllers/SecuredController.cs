@@ -13,6 +13,8 @@ namespace spa.Controllers
         // GET: api/Secured
         public IEnumerable<string> Get()
         {
+            // TODO Tada
+
             return new string[] { "value1", "value2" };
         }
 
