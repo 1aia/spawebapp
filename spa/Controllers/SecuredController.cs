@@ -13,7 +13,7 @@ namespace spa.Controllers
         // GET: api/Secured
         public IEnumerable<string> Get()
         {
-            return new string[] { "value1", "value2" };
+            return new string[] { "value1", "value2", "value3" };
         }
 
         // GET: api/Secured/5
