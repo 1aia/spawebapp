@@ -18,6 +18,8 @@ namespace spa.Controllers
             return new string[] { "value1", "value2", "value3" };
 
             // Atata
+
+            //Tag test
         }
 
         // GET: api/Secured/5
