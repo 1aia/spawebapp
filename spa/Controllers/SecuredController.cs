@@ -14,6 +14,8 @@ namespace spa.Controllers
         public IEnumerable<string> Get()
         {
             return new string[] { "value1", "value2", "value3" };
+
+            // Atata
         }
 
         // GET: api/Secured/5
